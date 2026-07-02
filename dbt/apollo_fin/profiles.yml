@@ -1,0 +1,11 @@
+apollo_fin:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: SFSENORTHAMERICA-DEMO_JHILL
+      role: ACCOUNTADMIN
+      database: APOLLO_FIN
+      warehouse: APOLLO_WH
+      schema: MARTS
+      threads: 4

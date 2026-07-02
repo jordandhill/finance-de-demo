@@ -1,0 +1,49 @@
+version: 2
+
+sources:
+  - name: raw
+    database: APOLLO_FIN
+    schema: RAW
+    description: "Bronze landing tables produced by the Openflow PostgreSQL CDC connector."
+    tables:
+      - name: CUSTOMERS
+        description: "Customer / CRM master (source 2)."
+      - name: INSTRUMENT_PRICES
+        description: "Market / reference instrument prices (source 3)."
+      - name: TRANSACTIONS
+        description: "Core banking transactions incl. trades (source 1)."
+
+models:
+  - name: stg_customers
+    description: "Cleansed, deduplicated customer master (latest non-deleted record per customer)."
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: segment
+        tests:
+          - accepted_values:
+              values: ['RETAIL','PREMIER','PRIVATE','BUSINESS']
+      - name: risk_rating
+        tests:
+          - accepted_values:
+              values: ['LOW','MEDIUM','HIGH']
+
+  - name: stg_instrument_prices
+    description: "Latest price per instrument symbol."
+    columns:
+      - name: symbol
+        tests: [not_null, unique]
+      - name: price
+        tests: [not_null]
+
+  - name: stg_transactions
+    description: "Cleansed core banking transactions (non-deleted)."
+    columns:
+      - name: txn_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id

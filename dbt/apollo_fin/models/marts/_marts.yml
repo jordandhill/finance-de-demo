@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: customer_360
+    description: >
+      Gold Customer 360 for Apollo Bank. Snowflake-managed Iceberg table combining
+      customer profile (CRM), cash activity & trades (core banking), and market
+      valuation (reference data) into a single relationship-value view for AI.
+    config:
+      contract:
+        enforced: false
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier."
+        tests: [not_null, unique]
+      - name: segment
+        tests:
+          - accepted_values:
+              values: ['RETAIL','PREMIER','PRIVATE','BUSINESS']
+      - name: total_relationship_value
+        description: "Current cash balance + market value of holdings."
+        tests: [not_null]
+      - name: holdings_value
+        description: "Net trade positions valued at latest instrument price."

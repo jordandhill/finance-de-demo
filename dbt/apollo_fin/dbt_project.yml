@@ -1,0 +1,26 @@
+name: 'apollo_fin'
+version: '1.0.0'
+config-version: 2
+
+profile: 'apollo_fin'
+
+flags:
+  enable_iceberg_materializations: true
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  apollo_fin:
+    staging:
+      +materialized: view
+      +schema: STAGING
+    marts:
+      +materialized: table
+      +schema: MARTS
