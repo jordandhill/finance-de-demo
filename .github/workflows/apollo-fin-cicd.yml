@@ -1,0 +1,72 @@
+name: apollo-fin-cicd
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['dbt/**', 'sql/**', '.github/workflows/**']
+  push:
+    branches: [main]
+    paths: ['dbt/**', 'sql/**', '.github/workflows/**']
+
+env:
+  # Configured as GitHub repository secrets:
+  #   SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, SNOWFLAKE_PRIVATE_KEY (PEM contents)
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_AUTHENTICATOR: SNOWFLAKE_JWT
+  SNOWFLAKE_ROLE: ACCOUNTADMIN
+  SNOWFLAKE_WAREHOUSE: APOLLO_WH
+  SNOWFLAKE_DATABASE: APOLLO_FIN
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Snowflake CLI
+        run: pip install snowflake-cli-labs
+
+      - name: Write private key
+        run: |
+          mkdir -p ~/.snowflake
+          printf '%s' "${{ secrets.SNOWFLAKE_PRIVATE_KEY }}" > ~/.snowflake/rsa_key.p8
+          chmod 600 ~/.snowflake/rsa_key.p8
+          echo "SNOWFLAKE_PRIVATE_KEY_PATH=$HOME/.snowflake/rsa_key.p8" >> "$GITHUB_ENV"
+
+      - name: Deploy dbt project to Snowflake
+        run: |
+          snow dbt deploy apollo_fin \
+            --source dbt/apollo_fin \
+            --database APOLLO_FIN --schema PUBLIC \
+            --temporary-connection
+
+      - name: Build + test (dbt build runs on Snowflake compute)
+        run: |
+          snow dbt execute --temporary-connection \
+            --database APOLLO_FIN --schema PUBLIC \
+            apollo_fin build
+
+  deploy-semantic-view:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Snowflake CLI
+        run: pip install snowflake-cli-labs
+      - name: Write private key
+        run: |
+          mkdir -p ~/.snowflake
+          printf '%s' "${{ secrets.SNOWFLAKE_PRIVATE_KEY }}" > ~/.snowflake/rsa_key.p8
+          chmod 600 ~/.snowflake/rsa_key.p8
+          echo "SNOWFLAKE_PRIVATE_KEY_PATH=$HOME/.snowflake/rsa_key.p8" >> "$GITHUB_ENV"
+      - name: Deploy semantic view
+        run: snow sql --temporary-connection -f sql/semantic/customer_360_semantic_view.sql
