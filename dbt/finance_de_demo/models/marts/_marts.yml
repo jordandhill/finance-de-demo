@@ -3,7 +3,7 @@ version: 2
 models:
   - name: customer_360
     description: >
-      Gold Customer 360 for Apollo Bank. Snowflake-managed Iceberg table combining
+      Gold Customer 360 for the bank. Snowflake-managed Iceberg table combining
       customer profile (CRM), cash activity & trades (core banking), and market
       valuation (reference data) into a single relationship-value view for AI.
     config:

@@ -1,13 +1,13 @@
 -- ============================================================================
--- Apollo Bank :: RAW / Bronze landing  (represents Openflow CDC output)
+-- the bank :: RAW / Bronze landing  (represents Openflow CDC output)
 -- These tables mirror exactly what the Openflow PostgreSQL connector lands,
 -- including CDC metadata columns. For a live runtime the connector populates
 -- them; here we load representative data so the pipeline runs end-to-end.
 -- Run with: snow sql -c default -f sql/setup/10_raw_landing.sql
 -- ============================================================================
 USE ROLE ACCOUNTADMIN;
-USE WAREHOUSE APOLLO_WH;
-USE DATABASE APOLLO_FIN;
+USE WAREHOUSE FINANCE_DE_DEMO_WH;
+USE DATABASE FINANCE_DE_DEMO;
 USE SCHEMA RAW;
 
 -- ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ SELECT
     seq4()+1 AS customer_id,
     'First'||(seq4()+1),
     'Last'||(seq4()+1),
-    'cust'||(seq4()+1)||'@apollobank.com',
+    'cust'||(seq4()+1)||'@finance_de_demobank.com',
     ARRAY_CONSTRUCT('RETAIL','PREMIER','PRIVATE','BUSINESS')[UNIFORM(0,3,RANDOM())]::STRING,
     ARRAY_CONSTRUCT('VERIFIED','VERIFIED','VERIFIED','PENDING','REVIEW')[UNIFORM(0,4,RANDOM())]::STRING,
     ARRAY_CONSTRUCT('LOW','LOW','MEDIUM','HIGH')[UNIFORM(0,3,RANDOM())]::STRING,

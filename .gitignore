@@ -1,9 +1,9 @@
 # Python / dbt
 __pycache__/
 *.pyc
-dbt/apollo_fin/target/
-dbt/apollo_fin/dbt_packages/
-dbt/apollo_fin/logs/
+dbt/finance_de_demo/target/
+dbt/finance_de_demo/dbt_packages/
+dbt/finance_de_demo/logs/
 .env
 .venv/
 venv/

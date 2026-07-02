@@ -2,7 +2,7 @@ version: 2
 
 sources:
   - name: raw
-    database: APOLLO_FIN
+    database: FINANCE_DE_DEMO
     schema: RAW
     description: "Bronze landing tables produced by the Openflow PostgreSQL CDC connector."
     tables:

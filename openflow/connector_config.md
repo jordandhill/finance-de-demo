@@ -1,7 +1,7 @@
-# Openflow — PostgreSQL CDC Connector configuration (Apollo Bank)
+# Openflow — PostgreSQL CDC Connector configuration (the bank)
 
 Config-as-code reference for the Openflow **PostgreSQL** connector that replicates the
-three financial sources into Snowflake `APOLLO_FIN.RAW`.
+three financial sources into Snowflake `FINANCE_DE_DEMO.RAW`.
 
 > The Openflow *runtime* is provisioned once via the Snowflake Control Plane UI
 > (Data > Openflow). It cannot be created via SQL/CLI. Once the runtime exists,
@@ -14,16 +14,16 @@ reach the source database.
 
 ```sql
 -- External Access Integration for the source Postgres endpoint
-CREATE NETWORK RULE IF NOT EXISTS APOLLO_FIN.PUBLIC.PG_SOURCE_RULE
+CREATE NETWORK RULE IF NOT EXISTS FINANCE_DE_DEMO.PUBLIC.PG_SOURCE_RULE
     MODE = EGRESS
     TYPE = HOST_PORT
     VALUE_LIST = ('<pg-host>:5432');
 
-CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION APOLLO_PG_EAI
-    ALLOWED_NETWORK_RULES = (APOLLO_FIN.PUBLIC.PG_SOURCE_RULE)
+CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION FINANCE_PG_EAI
+    ALLOWED_NETWORK_RULES = (FINANCE_DE_DEMO.PUBLIC.PG_SOURCE_RULE)
     ENABLED = TRUE;
 
-GRANT USAGE ON INTEGRATION APOLLO_PG_EAI TO ROLE OPENFLOW_RUNTIME_ROLE;
+GRANT USAGE ON INTEGRATION FINANCE_PG_EAI TO ROLE OPENFLOW_RUNTIME_ROLE;
 ```
 
 ## Connector parameters
@@ -32,23 +32,23 @@ GRANT USAGE ON INTEGRATION APOLLO_PG_EAI TO ROLE OPENFLOW_RUNTIME_ROLE;
 |-----------|-------|
 | Connector type | PostgreSQL (CDC / logical replication) |
 | Source host:port | `<pg-host>:5432` |
-| Database | `apollo` |
-| Publication | `apollo_cdc_pub` |
-| Replication slot | `apollo_slot` |
+| Database | `finance_de_demo` |
+| Publication | `finance_cdc_pub` |
+| Replication slot | `finance_slot` |
 | Included tables (regex) | `(core_banking\.transactions|customer_crm\.customers|market_ref\.instrument_prices)` |
-| Destination database | `APOLLO_FIN` |
+| Destination database | `FINANCE_DE_DEMO` |
 | Destination schema | `RAW` |
 | Destination table strategy | one table per source table |
 | Snowflake auth | `SNOWFLAKE_MANAGED` (SPCS runtime) |
-| External Access Integration | `APOLLO_PG_EAI` |
+| External Access Integration | `FINANCE_PG_EAI` |
 
 ## Landing tables produced (Bronze)
 
 | Source table | Lands as |
 |--------------|----------|
-| `customer_crm.customers` | `APOLLO_FIN.RAW.CUSTOMERS` |
-| `market_ref.instrument_prices` | `APOLLO_FIN.RAW.INSTRUMENT_PRICES` |
-| `core_banking.transactions` | `APOLLO_FIN.RAW.TRANSACTIONS` |
+| `customer_crm.customers` | `FINANCE_DE_DEMO.RAW.CUSTOMERS` |
+| `market_ref.instrument_prices` | `FINANCE_DE_DEMO.RAW.INSTRUMENT_PRICES` |
+| `core_banking.transactions` | `FINANCE_DE_DEMO.RAW.TRANSACTIONS` |
 
 Each landed row also carries CDC metadata columns from the connector
 (`_snowflake_inserted_at`, `_snowflake_deleted`, operation type). The dbt

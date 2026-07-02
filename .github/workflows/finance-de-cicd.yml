@@ -1,4 +1,4 @@
-name: apollo-fin-cicd
+name: finance-de-cicd
 
 on:
   pull_request:
@@ -15,8 +15,8 @@ env:
   SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
   SNOWFLAKE_AUTHENTICATOR: SNOWFLAKE_JWT
   SNOWFLAKE_ROLE: ACCOUNTADMIN
-  SNOWFLAKE_WAREHOUSE: APOLLO_WH
-  SNOWFLAKE_DATABASE: APOLLO_FIN
+  SNOWFLAKE_WAREHOUSE: FINANCE_DE_DEMO_WH
+  SNOWFLAKE_DATABASE: FINANCE_DE_DEMO
 
 jobs:
   build-and-test:
@@ -40,16 +40,16 @@ jobs:
 
       - name: Deploy dbt project to Snowflake
         run: |
-          snow dbt deploy apollo_fin \
-            --source dbt/apollo_fin \
-            --database APOLLO_FIN --schema PUBLIC \
+          snow dbt deploy finance_de_demo \
+            --source dbt/finance_de_demo \
+            --database FINANCE_DE_DEMO --schema PUBLIC \
             --temporary-connection
 
       - name: Build + test (dbt build runs on Snowflake compute)
         run: |
           snow dbt execute --temporary-connection \
-            --database APOLLO_FIN --schema PUBLIC \
-            apollo_fin build
+            --database FINANCE_DE_DEMO --schema PUBLIC \
+            finance_de_demo build
 
   deploy-semantic-view:
     needs: build-and-test

@@ -3,7 +3,7 @@
     materialized = 'table',
     table_format = 'iceberg',
     external_volume = 'MY_EXTERNAL_VOL',
-    base_location = 'apollo/customer_360'
+    base_location = 'finance_de_demo/customer_360'
   )
 }}
 

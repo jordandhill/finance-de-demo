@@ -1,18 +1,18 @@
 -- ============================================================================
--- Apollo Bank :: Semantic View over the Gold Iceberg table (for Cortex Analyst / AI)
+-- the bank :: Semantic View over the Gold Iceberg table (for Cortex Analyst / AI)
 -- Run with: snow sql -c default -f sql/semantic/customer_360_semantic_view.sql
 -- ============================================================================
 USE ROLE ACCOUNTADMIN;
-USE DATABASE APOLLO_FIN;
+USE DATABASE FINANCE_DE_DEMO;
 USE SCHEMA SEMANTIC;
 
-CREATE OR REPLACE SEMANTIC VIEW APOLLO_FIN.SEMANTIC.CUSTOMER_360_SV
+CREATE OR REPLACE SEMANTIC VIEW FINANCE_DE_DEMO.SEMANTIC.CUSTOMER_360_SV
 
   TABLES (
-    customers AS APOLLO_FIN.MARTS.CUSTOMER_360
+    customers AS FINANCE_DE_DEMO.MARTS.CUSTOMER_360
       PRIMARY KEY (customer_id)
       WITH SYNONYMS ('clients', 'accounts', 'customer base')
-      COMMENT = 'Apollo Bank Customer 360 - one row per customer with profile, cash, holdings and total relationship value'
+      COMMENT = 'the bank Customer 360 - one row per customer with profile, cash, holdings and total relationship value'
   )
 
   FACTS (
@@ -63,4 +63,4 @@ CREATE OR REPLACE SEMANTIC VIEW APOLLO_FIN.SEMANTIC.CUSTOMER_360_SV
       COMMENT = 'Total deposits'
   )
 
-  COMMENT = 'Customer 360 semantic view for Apollo Bank - powers Cortex Analyst / Snowflake Intelligence over the Iceberg gold table';
+  COMMENT = 'Customer 360 semantic view for the bank - powers Cortex Analyst / Snowflake Intelligence over the Iceberg gold table';

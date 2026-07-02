@@ -1,5 +1,5 @@
 -- ============================================================================
--- Apollo Bank :: Openflow CDC SOURCE definition (PostgreSQL)
+-- the bank :: Openflow CDC SOURCE definition (PostgreSQL)
 -- Run this against the source Postgres instance (RDS/EC2) that the Openflow
 -- PostgreSQL connector reads from.  Requires wal_level=logical (RDS: set in
 -- the parameter group and reboot).
@@ -35,7 +35,7 @@ INSERT INTO customer_crm.customers
 SELECT g,
        'First'  || g,
        'Last'   || g,
-       'cust' || g || '@apollobank.com',
+       'cust' || g || '@finance_de_demobank.com',
        (ARRAY['RETAIL','PREMIER','PRIVATE','BUSINESS'])[1 + floor(random()*4)],
        (ARRAY['VERIFIED','VERIFIED','VERIFIED','PENDING','REVIEW'])[1 + floor(random()*5)],
        (ARRAY['LOW','LOW','MEDIUM','HIGH'])[1 + floor(random()*4)],
@@ -101,7 +101,7 @@ FROM generate_series(1, 50000) g;
 -- ---------------------------------------------------------------------------
 -- CDC enablement: logical replication publication for the Openflow connector
 -- ---------------------------------------------------------------------------
-CREATE PUBLICATION apollo_cdc_pub FOR TABLE
+CREATE PUBLICATION finance_cdc_pub FOR TABLE
     customer_crm.customers,
     market_ref.instrument_prices,
     core_banking.transactions;
