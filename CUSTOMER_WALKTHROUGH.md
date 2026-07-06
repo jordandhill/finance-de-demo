@@ -1,119 +1,126 @@
-# Customer Walkthrough — Building a Governed Financial Data Product on Snowflake with Cortex Code
+# Customer Walkthrough — AI-Driven Data Engineering for an Asset Manager on Snowflake
 
-**Audience:** data engineering, platform, and analytics leaders at a financial services institution
+**Audience:** data engineering, platform, and analytics leaders at an asset management firm
 **Duration:** ~20 minutes
-**What you'll see:** a data engineer build a complete, governed pipeline — from three
-operational source systems to an AI-ready data product — conversationally with Cortex
-Code (CoCo), entirely on Snowflake, with open Iceberg storage, lineage, and CI/CD.
+**The big idea:** a data engineer builds a complete, governed data platform — from six
+operational sources to AI-ready data products — **by describing intent to Cortex Code (CoCo)**.
+AI writes the pipeline, AI processes the data inside the pipeline, and the outputs are
+AI-ready. Everything runs on Snowflake with open Iceberg storage, lineage, and CI/CD.
 
 ---
 
 ## 1. The business problem
 
-Relationship managers and risk teams need a single, trustworthy view of each customer:
-their profile, their cash activity, what they trade and hold, the risk they carry, and
-what the market is saying. Today that data lives in separate systems:
+"Meridian Asset Management" runs portfolios for institutional and wealth clients. The
+data engineering team has to unify trading, market, client, and research data into
+trustworthy products for portfolio managers, risk, and client reporting — fast, and
+without a sprawl of tools. Today the data lives in separate systems:
 
 | Source system | What it holds |
 |---------------|---------------|
-| Core banking | Account transactions, deposits, withdrawals |
-| CRM | Customer profile, segment, KYC and risk rating |
+| OMS / core ledger | Client cash flows: subscriptions, redemptions, fees |
+| CRM | Investor profile, segment (institutional/pension/endowment/HNW/wealth), KYC, risk rating |
 | Market data | Instrument prices and FX rates |
-| Trading & risk | Trade executions, positions, exposure, VaR, limit breaches |
-| Earnings transcripts (unstructured) | What management said on the earnings call |
+| Trading system | Trade executions (positions, books) |
+| Risk system | Exposure, VaR, limit breaches |
+| Research (unstructured) | Earnings-call transcripts — what management actually said |
 
-The goal: governed, open **Customer 360** and **Portfolio Risk** data products that
-combine structured and unstructured data, answer natural-language questions, and let
-risk teams search what was actually said — built by a small team without stitching
-together five different tools.
+The goal: governed, open **Investor 360 (AUM)** and **Portfolio Risk** data products that
+blend structured and unstructured data, answer natural-language questions, and let risk
+teams search the research — built by a small team.
 
-## 2. The approach
+## 2. The approach — AI *for* Data Engineering
 
-One platform, one governed copy of the data, built conversationally:
+This demo is about **using AI to build and run the data engineering itself**, not just
+adding an AI feature at the end. AI shows up at three levels:
+
+| Level | Where AI works | In this demo |
+|-------|----------------|--------------|
+| **Build the pipeline** | Agentic engineering with Cortex Code | CoCo writes the Openflow config, dbt models + tests, Iceberg DDL, semantic views, and the CI/CD workflow from plain-English prompts |
+| **Process data in the pipeline** | Cortex AISQL as transformation primitives | `AI_PARSE_DOCUMENT` reads transcripts; `AI_SENTIMENT` + `AI_COMPLETE` turn documents into structured, governed columns |
+| **Serve AI-ready products** | Semantic model + search | Semantic views for Cortex Analyst and a Cortex Search service over research |
 
 ```
-Core banking ┐
-CRM          ├─ Openflow CDC ─> Bronze ─ dbt ─> Silver ─ dbt ─> Gold (open Iceberg)
-Market data  ┘                                                      │
-                                       Semantic view + lineage ─> Cortex Analyst / AI
-                              GitHub + CI/CD  +  Snowflake Git version control
+OMS / CRM / Market ┐
+Trading / Risk     ├─ Openflow ─> Bronze ─ dbt (AI-authored) ─> Silver ─> Gold (open Iceberg)
+Research (PDFs)    ┘        │                                        │
+                    AI_PARSE_DOCUMENT + AI enrichment      Semantic views + Cortex Search ─> Cortex Analyst / AI
+                                    GitHub + CI/CD  +  Snowflake Git version control
 ```
 
-Every stage below was created by describing the intent to Cortex Code in plain
-English. The engineer stays in the flow of the business problem; CoCo writes the SQL,
-the dbt models, the connector config, and the automation.
+Every stage below starts with a **prompt to Cortex Code**. The engineer stays in the
+business problem; CoCo produces the artifacts.
 
 ## 3. The walkthrough
 
-### Act 1 — Ingest three sources with Openflow (Bronze)
-**Say:** "Land core banking transactions, customer CRM, and market reference data into
-Snowflake with an Openflow PostgreSQL CDC pipeline."
+> Throughout: point out that each artifact — SQL, dbt model, connector config, workflow —
+> was **generated by CoCo from the prompt shown**, then reviewed and version-controlled.
 
-**Show:** the generated connector configuration and source definitions in `openflow/`.
-Data lands continuously into the `RAW` layer as change-data-capture — no bulk reloads,
-no data leaving the Snowflake trust boundary.
+### Act 1 — Ingest six sources with Openflow (Bronze)
+**Prompt to CoCo:** "Build an Openflow pipeline that lands our trading, risk, client CRM,
+market prices and OMS cash flows via PostgreSQL CDC, plus earnings-call transcripts from a
+document source, into the RAW layer."
 
-**Point to make:** 200+ managed connectors, credentials and data stay inside Snowflake.
+**Show:** the connector configs in `openflow/` that CoCo generated. Data lands as CDC — no
+bulk reloads, credentials and data stay inside Snowflake.
 ```sql
-SELECT 'CUSTOMERS' t, COUNT(*) FROM FINANCE_DE_DEMO.RAW.CUSTOMERS
+SELECT 'CUSTOMERS(investors)' t, COUNT(*) FROM FINANCE_DE_DEMO.RAW.CUSTOMERS
 UNION ALL SELECT 'INSTRUMENT_PRICES', COUNT(*) FROM FINANCE_DE_DEMO.RAW.INSTRUMENT_PRICES
-UNION ALL SELECT 'TRANSACTIONS', COUNT(*) FROM FINANCE_DE_DEMO.RAW.TRANSACTIONS;
+UNION ALL SELECT 'TRANSACTIONS(flows)', COUNT(*) FROM FINANCE_DE_DEMO.RAW.TRANSACTIONS
+UNION ALL SELECT 'TRADES', COUNT(*) FROM FINANCE_DE_DEMO.RAW.TRADES
+UNION ALL SELECT 'RISK_METRICS', COUNT(*) FROM FINANCE_DE_DEMO.RAW.RISK_METRICS
+UNION ALL SELECT 'EARNINGS_TRANSCRIPTS', COUNT(*) FROM FINANCE_DE_DEMO.RAW.EARNINGS_TRANSCRIPTS_RAW;
 ```
-1,000 customers, 50 instruments, 50,000 transactions landed and ready.
+**AI did the engineering here:** CoCo produced the connector configuration, the source
+schema, and the external access integration — no hand-written NiFi flows.
 
-### Act 2 — Transform with dbt, on Snowflake (Silver -> Gold)
-**Say:** "Build a dbt project: cleanse each source in a Silver layer, then join them into
-a Gold Customer 360 model with cash, holdings valued at market price, and total
-relationship value. Add tests."
+### Act 2 — Transform with dbt, authored by AI (Silver -> Gold)
+**Prompt to CoCo:** "Create a dbt project: cleanse each source in a Silver layer, then build
+an Investor 360 model (AUM = cash + holdings valued at market) and a Portfolio Risk model at
+investor x instrument grain. Add tests."
 
-**Show:** the dbt models, then run them natively:
+**Show:** the dbt models CoCo wrote, then run them natively on Snowflake:
 ```bash
 snow dbt execute -c default --database FINANCE_DE_DEMO --schema PUBLIC finance_de_demo build
 ```
-19 models and tests run **on Snowflake compute** — no separate orchestration server, no
-data movement. Tests (uniqueness, not-null, referential integrity) gate the build.
+41 models + tests run **on Snowflake compute**. Tests (uniqueness, not-null, referential
+integrity, accepted values) gate the build.
 
-**Point to make:** governed, tested, version-controlled transformations — the same dbt
-your teams know, running inside the platform.
+**AI did the engineering here:** CoCo authored the staging + mart SQL, the schema tests,
+and the schema-name macro — the engineer reviewed a diff, not a blank file.
 
-### Act 3 — An open Gold data product (Iceberg)
-**Say:** "Materialize the Gold table as a Snowflake-managed Iceberg table."
+### Act 3 — Open Gold data products (Iceberg)
+**Prompt to CoCo:** "Materialize the gold models as Snowflake-managed Iceberg tables on our
+external volume."
 
 **Show:**
 ```sql
-SHOW ICEBERG TABLES IN SCHEMA FINANCE_DE_DEMO.MARTS;   -- catalog = SNOWFLAKE, MANAGED
+SHOW ICEBERG TABLES IN SCHEMA FINANCE_DE_DEMO.MARTS;  -- INVESTOR_360, PORTFOLIO_RISK, INVESTOR_RISK (MANAGED)
+
+-- AUM by investor segment
+SELECT * FROM SEMANTIC_VIEW(
+  FINANCE_DE_DEMO.SEMANTIC.INVESTOR_360_SV
+  DIMENSIONS investors.investor_segment
+  METRICS investors.investor_count, investors.total_aum
+) ORDER BY total_aum DESC;
 ```
-The Customer 360 data product is stored in **open Apache Iceberg format on your own
-cloud storage** — readable by other engines, one copy, fully managed by Snowflake.
+Two client-facing products in **open Apache Iceberg** on your own cloud storage — one copy,
+readable by other engines, fully managed by Snowflake.
 
-**Point to make:** open format, no lock-in, no duplication; Snowflake handles metadata,
-compaction, and performance.
+**AI did the engineering here:** CoCo set the Iceberg materialization config (external volume,
+base location, and the microsecond-timestamp fix Iceberg requires) so the engineer didn't
+have to learn the footguns.
 
-### Act 3b — More sources through Openflow: trades, risk & unstructured earnings
-**Say:** "Add a trades and risk source, and bring in earnings-call transcripts as an
-unstructured source."
+### Act 4 — AI as a transformation step: research -> structured signal
+**Prompt to CoCo:** "Parse the earnings-call transcripts with Cortex, score sentiment and
+summarize the outlook, and blend each instrument's sentiment into the portfolio risk table."
 
-**Show:**
-- **Trades & risk** land through the same Openflow **PostgreSQL CDC** connector (trade
-  executions + a per-customer risk snapshot with exposure, VaR, and limit breaches).
-  You can narrate how the same connector also supports **streaming** for real-time trades.
-- **Earnings call transcripts** (PDFs) arrive through a **non-Postgres Openflow document
-  connector**, land in a Snowflake stage, and are parsed with **Cortex `AI_PARSE_DOCUMENT`**,
-  then scored for sentiment and summarized — no external OCR or NLP tooling.
-
+**Show:** the AI functions CoCo wired into the dbt/SQL layer:
 ```sql
 SELECT symbol, sentiment, LEFT(summary, 90) AS outlook
 FROM FINANCE_DE_DEMO.STAGING.STG_EARNINGS_TRANSCRIPTS ORDER BY symbol;
 ```
-**Point to make:** one platform ingests structured *and* unstructured data, and AI reads
-the documents in place.
-
-### Act 3c — Portfolio risk data product + document AI
-**Say:** "Build a portfolio risk view that values every position and blends in the
-earnings sentiment for each holding."
-
-**Show:** the second Iceberg gold product, `PORTFOLIO_RISK`, and how sentiment lines up
-with performance:
+Then the payoff in the Portfolio Risk product — an unstructured signal made structured:
 ```sql
 SELECT * FROM SEMANTIC_VIEW(
   FINANCE_DE_DEMO.SEMANTIC.PORTFOLIO_RISK_SV
@@ -122,87 +129,70 @@ SELECT * FROM SEMANTIC_VIEW(
 ) ORDER BY total_unrealized_pnl DESC;
 ```
 Positions in **positive-sentiment** names carry materially higher unrealized P&L than
-**negative/neutral** ones — a structured + unstructured signal in one governed table.
+**negative/neutral** ones — a research signal, computed by AI, sitting in a governed table.
 
-**And natural-language document search** via Cortex Search:
+**AI did the engineering here:** `AI_PARSE_DOCUMENT` + `AI_SENTIMENT` + `AI_COMPLETE` are the
+transformation — no external OCR/NLP service, no data movement. AI turned PDFs into columns.
+
+### Act 5 — AI-ready serving (semantic model + Cortex Search)
+**Prompt to CoCo:** "Create semantic views over the gold tables and a Cortex Search service
+over the transcripts so our teams can ask questions in plain English."
+
+**Show:** natural-language document search:
 ```sql
 SELECT f.value:symbol::string AS symbol, f.value:sentiment::string AS sentiment
 FROM TABLE(FLATTEN(input => PARSE_JSON(SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
   'FINANCE_DE_DEMO.SEMANTIC.EARNINGS_SEARCH',
-  '{"query":"which companies are cutting guidance or facing weak demand","columns":["symbol","sentiment"],"limit":3}'
+  '{"query":"which holdings are cutting guidance or facing weak demand","columns":["symbol","sentiment"],"limit":3}'
 )):results)) f;
 ```
-**Point to make:** risk officers query positions *and* search what management actually
-said — all governed, all in Snowflake.
+Point Cortex Analyst / Snowflake Intelligence at `INVESTOR_360_SV` and `PORTFOLIO_RISK_SV`:
+PMs and risk officers ask "total AUM by segment" or "exposure to negative-sentiment names"
+in plain English — grounded in governed, defined metrics.
 
-### Act 4 — Make it answer questions (Semantic view + AI)
-**Say:** "Create a semantic view over Customer 360 with segment, risk, and country
-dimensions and relationship-value metrics."
+**AI did the engineering here:** CoCo generated the semantic model (dimensions, metrics,
+synonyms) — the hardest part of enabling text-to-SQL — plus the search service DDL.
 
-**Show:** a business question answered through the semantic layer:
-```sql
-SELECT * FROM SEMANTIC_VIEW(
-  FINANCE_DE_DEMO.SEMANTIC.CUSTOMER_360_SV
-  DIMENSIONS customers.segment
-  METRICS customers.customer_count, customers.total_book_value
-) ORDER BY total_book_value DESC;
-```
-
-| Segment | Customers | Total relationship value |
-|---------|-----------|--------------------------|
-| PREMIER | 247 | ~$9.6M |
-| RETAIL | 247 | ~$9.0M |
-| PRIVATE | 263 | ~$7.4M |
-| BUSINESS | 243 | net negative — a risk signal to investigate |
-
-**Point to make:** point Cortex Analyst / Snowflake Intelligence at this semantic view
-and business users ask questions in plain English — grounded in governed, defined
-metrics, not ad-hoc SQL.
-
-### Act 5 — Trust and governance (Lineage)
-**Say:** "Show me where this data product comes from."
-
-**Show:**
+### Act 6 — Trust and governance (Lineage)
+**Prompt to CoCo:** "Show me where the Portfolio Risk product comes from."
 ```sql
 SELECT source_object_name, target_object_name, distance
-FROM TABLE(SNOWFLAKE.CORE.GET_LINEAGE('FINANCE_DE_DEMO.MARTS.CUSTOMER_360','TABLE','UPSTREAM',3))
+FROM TABLE(SNOWFLAKE.CORE.GET_LINEAGE('FINANCE_DE_DEMO.MARTS.PORTFOLIO_RISK','TABLE','UPSTREAM',3))
 ORDER BY distance;
 ```
-Lineage traces the Gold Iceberg product back through the Silver views to all three RAW
-sources — automatically, no manual documentation.
+Lineage traces the gold Iceberg product back through the Silver views to every RAW source —
+structured *and* the unstructured transcripts — automatically.
 
-**Point to make:** built-in Horizon lineage answers "where did this number come from?"
-and "what breaks if I change this?" — essential for audit and regulatory confidence.
+**Point to make:** answers "where did this number come from?" and "what breaks if I change
+this?" — essential for audit and regulatory confidence.
 
-### Act 6 — Production discipline (Version control + CI/CD)
-**Say:** "Version everything in Git and add CI/CD."
+### Act 7 — Production discipline (Version control + CI/CD)
+**Prompt to CoCo:** "Put everything in GitHub and add a CI/CD workflow that builds and tests
+the dbt project on every PR and deploys the semantic views on merge to main."
 
-**Show:** the GitHub repo and `.github/workflows/finance-de-cicd.yml`. Every change opens
-a pull request; CI deploys and builds the dbt project and runs the tests before merge;
-merging to `main` promotes the semantic view. The repo is also mirrored into Snowflake
-as a Git repository object.
-
-**Point to make:** the whole data product is code — reviewed, tested, and promoted like
-software, with a full audit trail.
+**Show:** the repo and `.github/workflows/finance-de-cicd.yml`. Every AI-authored change is
+reviewed in a pull request, tested by CI, and promoted like software. The repo is mirrored
+into Snowflake as a Git repository object.
 
 ## 4. Why it matters
 
 | Stakeholder | Takeaway |
 |-------------|----------|
-| Data engineering | One platform, conversational build, native dbt + CI/CD — less tooling to run |
-| Architecture | Open Iceberg on your storage, one governed copy, automatic lineage |
-| Risk & compliance | End-to-end lineage and tested, version-controlled pipelines for audit |
-| Analytics / AI | Governed semantic layer powering natural-language questions over trusted data |
+| Data engineering | AI writes the pipeline (Openflow, dbt, Iceberg, semantic, CI/CD) — build in hours, not sprints, with fewer tools |
+| Portfolio management | Investor 360 (AUM) and portfolio risk with research signals, queryable in plain English |
+| Risk & compliance | End-to-end lineage + tested, version-controlled pipelines for audit |
+| Architecture | Open Iceberg on your storage, one governed copy, AI processing in place |
 
 ## 5. What was built (recap)
 - **6 sources** ingested via Openflow — 5 structured (PostgreSQL CDC) + 1 unstructured
-  (earnings transcripts via a document connector, parsed with Cortex)
-- **dbt** Silver + Gold transformations, tested, running on Snowflake compute
-- **Two Iceberg data products**: `CUSTOMER_360` (relationship value) and `PORTFOLIO_RISK`
-  (positions, exposure, P&L + earnings sentiment), plus a `CUSTOMER_RISK` summary
-- **Semantic views** + a **Cortex Search** service enabling AI / natural-language analytics
-- **Horizon lineage** from Gold back to every structured and unstructured source
+  (earnings transcripts, parsed by Cortex) — **connector config authored by CoCo**
+- **dbt** Silver + Gold transformations + tests, **authored by CoCo**, running on Snowflake
+- **AI as a transformation step**: `AI_PARSE_DOCUMENT` + `AI_SENTIMENT` + `AI_COMPLETE` turn
+  research PDFs into governed structured signal
+- **Three Iceberg data products**: `INVESTOR_360` (AUM), `PORTFOLIO_RISK`, `INVESTOR_RISK`
+- **Semantic views** + **Cortex Search** — AI-ready serving, **generated by CoCo**
+- **Horizon lineage** from Gold back to every source
 - **GitHub + CI/CD** and Snowflake Git for full version control
 
-All of it built by describing the outcome to Cortex Code — the engineer focused on the
-business problem, not the plumbing.
+The whole platform was built by describing outcomes to Cortex Code — **AI doing the data
+engineering**, with the engineer focused on the business problem, not the plumbing.

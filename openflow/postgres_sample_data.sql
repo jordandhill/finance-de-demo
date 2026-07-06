@@ -23,7 +23,7 @@ CREATE TABLE customer_crm.customers (
     first_name      VARCHAR(60),
     last_name       VARCHAR(60),
     email           VARCHAR(160),
-    segment         VARCHAR(20),          -- RETAIL / PREMIER / PRIVATE / BUSINESS
+    segment         VARCHAR(20),          -- INSTITUTIONAL / PENSION / ENDOWMENT / HNW / WEALTH
     kyc_status      VARCHAR(20),          -- VERIFIED / PENDING / REVIEW
     risk_rating     VARCHAR(10),          -- LOW / MEDIUM / HIGH
     country         VARCHAR(2),
@@ -36,7 +36,7 @@ SELECT g,
        'First'  || g,
        'Last'   || g,
        'cust' || g || '@finance_de_demobank.com',
-       (ARRAY['RETAIL','PREMIER','PRIVATE','BUSINESS'])[1 + floor(random()*4)],
+       (ARRAY['INSTITUTIONAL','PENSION','ENDOWMENT','HNW','WEALTH'])[1 + floor(random()*5)],
        (ARRAY['VERIFIED','VERIFIED','VERIFIED','PENDING','REVIEW'])[1 + floor(random()*5)],
        (ARRAY['LOW','LOW','MEDIUM','HIGH'])[1 + floor(random()*4)],
        (ARRAY['US','US','GB','CA','DE','SG'])[1 + floor(random()*6)],

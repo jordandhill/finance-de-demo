@@ -3,19 +3,19 @@
     materialized = 'table',
     table_format = 'iceberg',
     external_volume = 'MY_EXTERNAL_VOL',
-    base_location = 'finance_de_demo/customer_risk'
+    base_location = 'finance_de_demo/investor_risk'
   )
 }}
 
--- Gold: customer-level risk summary (from the risk system + derived positions).
--- Non-additive risk measures (VaR, limits) kept at customer grain.
+-- Gold: investor-level risk summary (from the risk system + derived positions).
+-- Non-additive risk measures (VaR, limits) kept at investor grain.
 
 with risk as (
     select * from {{ ref('stg_risk_metrics') }}
 ),
 
 pos as (
-    select customer_id,
+    select investor_id as customer_id,
            sum(gross_exposure)   as derived_gross_exposure,
            count(*)              as instruments_held
     from {{ ref('portfolio_risk') }}
@@ -23,8 +23,8 @@ pos as (
 )
 
 select
-    c.customer_id,
-    c.segment,
+    c.customer_id       as investor_id,
+    c.segment           as investor_segment,
     c.risk_rating,
     c.country,
     r.as_of_date,

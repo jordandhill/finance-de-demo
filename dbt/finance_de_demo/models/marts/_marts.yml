@@ -1,35 +1,35 @@
 version: 2
 
 models:
-  - name: customer_360
+  - name: investor_360
     description: >
-      Gold Customer 360 for the bank. Snowflake-managed Iceberg table combining
-      customer profile (CRM), cash activity & trades (core banking), and market
-      valuation (reference data) into a single relationship-value view for AI.
+      Gold Investor 360 for an asset manager. Snowflake-managed Iceberg table combining
+      client profile (CRM), cash flows (subscriptions/redemptions & trades), and market
+      valuation (reference data) into a single assets-under-management view for AI.
     config:
       contract:
         enforced: false
     columns:
-      - name: customer_id
-        description: "Unique customer identifier."
+      - name: investor_id
+        description: "Unique investor / client identifier."
         tests: [not_null, unique]
-      - name: segment
+      - name: investor_segment
         tests:
           - accepted_values:
-              values: ['RETAIL','PREMIER','PRIVATE','BUSINESS']
-      - name: total_relationship_value
-        description: "Current cash balance + market value of holdings."
+              values: ['INSTITUTIONAL','PENSION','ENDOWMENT','HNW','WEALTH']
+      - name: assets_under_management
+        description: "Cash balance + market value of holdings (AUM)."
         tests: [not_null]
       - name: holdings_value
         description: "Net trade positions valued at latest instrument price."
 
   - name: portfolio_risk
     description: >
-      Gold portfolio risk (Snowflake-managed Iceberg) at customer x instrument grain:
+      Gold portfolio risk (Snowflake-managed Iceberg) at investor x instrument grain:
       net positions valued at market, exposure, unrealized P&L, enriched with the
       instrument's latest earnings-call sentiment/summary.
     columns:
-      - name: customer_id
+      - name: investor_id
         tests: [not_null]
       - name: symbol
         tests: [not_null]
@@ -42,12 +42,12 @@ models:
               config:
                 where: "earnings_sentiment is not null"
 
-  - name: customer_risk
+  - name: investor_risk
     description: >
-      Gold customer-level risk summary (Snowflake-managed Iceberg): exposure, VaR,
+      Gold investor-level risk summary (Snowflake-managed Iceberg): exposure, VaR,
       risk limit and breach flag, plus derived portfolio exposure.
     columns:
-      - name: customer_id
+      - name: investor_id
         tests: [not_null, unique]
       - name: var_95
         tests: [not_null]

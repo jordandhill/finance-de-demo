@@ -70,6 +70,6 @@ jobs:
           echo "SNOWFLAKE_PRIVATE_KEY_PATH=$HOME/.snowflake/rsa_key.p8" >> "$GITHUB_ENV"
       - name: Deploy semantic views + Cortex Search
         run: |
-          snow sql --temporary-connection -f sql/semantic/customer_360_semantic_view.sql
+          snow sql --temporary-connection -f sql/semantic/investor_360_semantic_view.sql
           snow sql --temporary-connection -f sql/semantic/portfolio_risk_semantic_view.sql
           snow sql --temporary-connection -f sql/semantic/earnings_search.sql

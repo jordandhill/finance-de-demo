@@ -1,4 +1,4 @@
--- Silver: cleansed core banking transactions (non-deleted)
+-- Silver: cleansed OMS client cash flows / trades (non-deleted)
 select
     txn_id,
     account_id,

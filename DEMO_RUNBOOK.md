@@ -11,12 +11,12 @@ prompts used at each stage. For the customer-facing narrative, see `CUSTOMER_WAL
 ## Architecture
 
 ```
-Core banking (Postgres)  ┐
-Customer CRM (Postgres)  ├─ Openflow CDC ─> FINANCE_DE_DEMO.RAW (Bronze)
-Market / reference data  ┘                       │
+OMS cash flows (Postgres) ┐
+Investor CRM (Postgres)   ├─ Openflow CDC ─> FINANCE_DE_DEMO.RAW (Bronze)
+Market / reference data   ┘                       │
                                     dbt (Snowflake-native) STAGING (Silver, views)
                                                  │
-                       FINANCE_DE_DEMO.MARTS.CUSTOMER_360  (Gold, managed Iceberg)
+                       FINANCE_DE_DEMO.MARTS.INVESTOR_360  (Gold, managed Iceberg)
                                                  │
                           Semantic View  +  Horizon column/table lineage
                                                  │
@@ -34,10 +34,10 @@ Market / reference data  ┘                       │
 > "Create a GitHub repo for this project and register it as a Snowflake GIT REPOSITORY
 > object so we can browse and deploy from Snowflake."
 
-### 3. Openflow CDC ingestion (core banking, CRM, market)
-> "Build an Openflow PostgreSQL CDC pipeline that lands core banking transactions,
-> customer CRM, and market reference data into FINANCE_DE_DEMO.RAW. Generate the source
-> schema, the connector configuration, and the external access integration."
+### 3. Openflow CDC ingestion (OMS cash flows, investor CRM, market)
+> "Build an Openflow PostgreSQL CDC pipeline that lands OMS cash flows (subscriptions/
+> redemptions), investor CRM, and market reference data into FINANCE_DE_DEMO.RAW. Generate
+> the source schema, the connector configuration, and the external access integration."
 
 ### 3b. Add trades & risk (Postgres CDC) + unstructured earnings transcripts
 > "Add a trades and risk source to the Openflow PostgreSQL connector (trade executions
@@ -47,20 +47,20 @@ Market / reference data  ┘                       │
 > stage and parse them with Cortex AI_PARSE_DOCUMENT into RAW."
 
 ### 4. dbt transformations (Bronze -> Silver -> Gold), all on Snowflake
-> "Create a dbt project with Silver staging models over RAW and a Gold CUSTOMER_360
-> model that joins customers, their transactions, and market prices into a single
-> relationship-value table. Add tests. Deploy and run it natively on Snowflake."
+> "Create a dbt project with Silver staging models over RAW and a Gold INVESTOR_360
+> model (AUM = cash + holdings valued at market) plus a PORTFOLIO_RISK model at investor
+> x instrument grain. Add tests. Deploy and run it natively on Snowflake."
 
 ### 5. Gold as Snowflake-managed Iceberg
-> "Materialize the Gold CUSTOMER_360 model as a Snowflake-managed Iceberg table on
-> MY_EXTERNAL_VOL."
+> "Materialize the gold models (INVESTOR_360, PORTFOLIO_RISK, INVESTOR_RISK) as
+> Snowflake-managed Iceberg tables on MY_EXTERNAL_VOL."
 
 ### 6. Semantic views + Cortex Search + lineage for AI
-> "Create a semantic view over CUSTOMER_360 with dimensions for segment, risk rating
-> and country and metrics for customer count, total relationship value and holdings
-> value. Then show me the lineage from the gold table back to the raw sources."
+> "Create a semantic view over INVESTOR_360 with dimensions for investor segment, risk
+> rating and country and metrics for investor count, total AUM and net flows. Then show
+> me the lineage from the gold table back to the raw sources."
 
-> "Build a PORTFOLIO_RISK gold Iceberg table (customer x instrument positions valued at
+> "Build a PORTFOLIO_RISK gold Iceberg table (investor x instrument positions valued at
 > market, with each instrument's earnings sentiment), a semantic view over it, and a
 > Cortex Search service over the parsed transcripts."
 
@@ -80,7 +80,7 @@ snow sql -c default -q "PUT file://openflow/sample_docs/*.pdf @FINANCE_DE_DEMO.R
 snow sql -c default -f sql/setup/12_docs_ingest.sql
 snow dbt deploy finance_de_demo --source dbt/finance_de_demo --database FINANCE_DE_DEMO --schema PUBLIC -c default
 snow dbt execute -c default --database FINANCE_DE_DEMO --schema PUBLIC finance_de_demo build
-snow sql -c default -f sql/semantic/customer_360_semantic_view.sql
+snow sql -c default -f sql/semantic/investor_360_semantic_view.sql
 snow sql -c default -f sql/semantic/portfolio_risk_semantic_view.sql
 snow sql -c default -f sql/semantic/earnings_search.sql
 ```
@@ -100,10 +100,10 @@ SHOW ICEBERG TABLES IN SCHEMA FINANCE_DE_DEMO.MARTS;
 
 -- Ask a business question through the semantic layer
 SELECT * FROM SEMANTIC_VIEW(
-  FINANCE_DE_DEMO.SEMANTIC.CUSTOMER_360_SV
-  DIMENSIONS customers.segment
-  METRICS customers.customer_count, customers.total_book_value
-) ORDER BY total_book_value DESC;
+  FINANCE_DE_DEMO.SEMANTIC.INVESTOR_360_SV
+  DIMENSIONS investors.investor_segment
+  METRICS investors.investor_count, investors.total_aum
+) ORDER BY total_aum DESC;
 
 -- Lineage: gold Iceberg table back to the raw sources
 SELECT source_object_name, target_object_name, distance

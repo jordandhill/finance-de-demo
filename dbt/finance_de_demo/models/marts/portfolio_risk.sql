@@ -40,8 +40,8 @@ earnings as (
 )
 
 select
-    p.customer_id,
-    c.segment,
+    p.customer_id                                   as investor_id,
+    c.segment                                       as investor_segment,
     c.risk_rating,
     p.symbol,
     pr.asset_class,

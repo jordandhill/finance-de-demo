@@ -11,7 +11,7 @@ sources:
       - name: INSTRUMENT_PRICES
         description: "Market / reference instrument prices (source 3)."
       - name: TRANSACTIONS
-        description: "Core banking transactions incl. trades (source 1)."
+        description: "OMS client cash flows: subscriptions, redemptions, fees, and trades (source 1)."
       - name: TRADES
         description: "Trade executions from the trading/risk system (source 4)."
       - name: RISK_METRICS
@@ -28,7 +28,7 @@ models:
       - name: segment
         tests:
           - accepted_values:
-              values: ['RETAIL','PREMIER','PRIVATE','BUSINESS']
+              values: ['INSTITUTIONAL','PENSION','ENDOWMENT','HNW','WEALTH']
       - name: risk_rating
         tests:
           - accepted_values:
@@ -43,7 +43,7 @@ models:
         tests: [not_null]
 
   - name: stg_transactions
-    description: "Cleansed core banking transactions (non-deleted)."
+    description: "Cleansed OMS client cash flows / trades (non-deleted)."
     columns:
       - name: txn_id
         tests: [not_null, unique]

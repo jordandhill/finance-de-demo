@@ -11,9 +11,9 @@ CREATE OR REPLACE SEMANTIC VIEW FINANCE_DE_DEMO.SEMANTIC.PORTFOLIO_RISK_SV
 
   TABLES (
     positions AS FINANCE_DE_DEMO.MARTS.PORTFOLIO_RISK
-      PRIMARY KEY (customer_id, symbol)
+      PRIMARY KEY (investor_id, symbol)
       WITH SYNONYMS ('portfolio', 'holdings', 'book')
-      COMMENT = 'Customer x instrument positions valued at market, with earnings sentiment'
+      COMMENT = 'Investor x instrument positions valued at market, with earnings sentiment'
   )
 
   FACTS (
@@ -28,13 +28,13 @@ CREATE OR REPLACE SEMANTIC VIEW FINANCE_DE_DEMO.SEMANTIC.PORTFOLIO_RISK_SV
   )
 
   DIMENSIONS (
-    positions.customer_id AS customer_id,
+    positions.investor_id AS investor_id,
     positions.symbol AS symbol
       WITH SYNONYMS ('instrument', 'ticker'),
     positions.asset_class AS asset_class
       WITH SYNONYMS ('asset type'),
-    positions.segment AS segment
-      WITH SYNONYMS ('customer segment'),
+    positions.investor_segment AS investor_segment
+      WITH SYNONYMS ('client segment', 'investor type'),
     positions.risk_rating AS risk_rating
       WITH SYNONYMS ('risk level'),
     positions.earnings_sentiment AS earnings_sentiment
@@ -43,9 +43,9 @@ CREATE OR REPLACE SEMANTIC VIEW FINANCE_DE_DEMO.SEMANTIC.PORTFOLIO_RISK_SV
   )
 
   METRICS (
-    positions.position_count AS COUNT(positions.customer_id)
+    positions.position_count AS COUNT(positions.investor_id)
       WITH SYNONYMS ('number of positions')
-      COMMENT = 'Count of customer-instrument positions',
+      COMMENT = 'Count of investor-instrument positions',
     positions.total_market_value AS SUM(positions.market_value)
       COMMENT = 'Total signed market value',
     positions.total_gross_exposure AS SUM(positions.gross_exposure)

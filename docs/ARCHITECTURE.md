@@ -3,15 +3,15 @@
 End-to-end data flow for the Finance DE Demo. Structured **trades & risk** and core
 banking / CRM / market data arrive via Openflow **PostgreSQL CDC**; **earnings-call
 transcripts** arrive via a non-Postgres Openflow **document connector** and are parsed
-with Cortex. dbt transforms Bronze -> Silver -> Gold, landing two open Snowflake-managed
-Iceberg data products (`CUSTOMER_360`, `PORTFOLIO_RISK`), exposed to AI via semantic
-views, a Cortex Search service, and Horizon lineage — all version-controlled with
-GitHub and CI/CD.
+with Cortex. dbt (authored by Cortex Code) transforms Bronze -> Silver -> Gold, landing
+Snowflake-managed Iceberg data products (`INVESTOR_360` / AUM, `PORTFOLIO_RISK`,
+`INVESTOR_RISK`), exposed to AI via semantic views, a Cortex Search service, and Horizon
+lineage — all version-controlled with GitHub and CI/CD.
 
 ```mermaid
 flowchart TD
   subgraph pg [Postgres CDC - Openflow PostgreSQL connector]
-    S1[Core banking transactions]
+    S1[OMS cash flows]
     S2[Customer / CRM master]
     S3[Market / reference prices]
     S4[Trades - executions]
@@ -31,11 +31,11 @@ flowchart TD
   STG_DOC --> PARSE[Cortex AI_PARSE_DOCUMENT + AI_SENTIMENT/AI_COMPLETE]
   PARSE --> RAW
   RAW --> SILVER[(Silver - dbt views)]
-  SILVER --> G1[(CUSTOMER_360 - Iceberg)]
+  SILVER --> G1[(INVESTOR_360 / AUM - Iceberg)]
   SILVER --> G2[(PORTFOLIO_RISK - Iceberg)]
-  SILVER --> G3[(CUSTOMER_RISK - Iceberg)]
+  SILVER --> G3[(INVESTOR_RISK - Iceberg)]
   PARSE --> SEARCH[Cortex Search over transcripts]
-  G1 --> SV1[CUSTOMER_360_SV]
+  G1 --> SV1[INVESTOR_360_SV]
   G2 --> SV2[PORTFOLIO_RISK_SV]
   SV1 --> AI[Cortex Analyst / Snowflake Intelligence]
   SV2 --> AI
@@ -51,19 +51,19 @@ flowchart TD
 ## Sources
 | # | Source | Openflow connector | Lands as |
 |---|--------|--------------------|----------|
-| 1 | Core banking transactions | PostgreSQL CDC | `RAW.TRANSACTIONS` |
-| 2 | Customer / CRM master | PostgreSQL CDC | `RAW.CUSTOMERS` |
+| 1 | OMS cash flows (subscriptions/redemptions) | PostgreSQL CDC | `RAW.TRANSACTIONS` |
+| 2 | Investor / CRM master | PostgreSQL CDC | `RAW.CUSTOMERS` |
 | 3 | Market / reference prices | PostgreSQL CDC | `RAW.INSTRUMENT_PRICES` |
 | 4 | Trades (executions) | PostgreSQL CDC | `RAW.TRADES` |
 | 5 | Risk metrics (exposure/VaR) | PostgreSQL CDC | `RAW.RISK_METRICS` |
 | 6 | Earnings call transcripts | Document connector | `RAW.DOC_STAGE` -> `RAW.EARNINGS_TRANSCRIPTS_RAW` |
 
 ## Gold data products (Snowflake-managed Iceberg)
-- `MARTS.CUSTOMER_360` — relationship value per customer
-- `MARTS.PORTFOLIO_RISK` — customer x instrument positions, exposure, P&L + earnings sentiment
-- `MARTS.CUSTOMER_RISK` — customer-level exposure, VaR, limit breaches
+- `MARTS.INVESTOR_360` — assets under management (AUM) per investor
+- `MARTS.PORTFOLIO_RISK` — investor x instrument positions, exposure, P&L + earnings sentiment
+- `MARTS.INVESTOR_RISK` — investor-level exposure, VaR, limit breaches
 
 ## AI serving
-- `SEMANTIC.CUSTOMER_360_SV`, `SEMANTIC.PORTFOLIO_RISK_SV` — semantic views for Cortex Analyst
+- `SEMANTIC.INVESTOR_360_SV`, `SEMANTIC.PORTFOLIO_RISK_SV` — semantic views for Cortex Analyst
 - `SEMANTIC.EARNINGS_SEARCH` — Cortex Search service over transcript text
 - Horizon lineage from every gold table back to its RAW sources
