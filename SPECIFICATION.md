@@ -185,7 +185,8 @@ Each phase: **objective**, the **agent prompt** (natural language the agent acts
 - **Deliverables:** `sql/governance/00_role.sql` (demo role), `10_classify.sql`
   (`EXTRACT_SEMANTIC_CATEGORIES` + `ASSOCIATE_SEMANTIC_CATEGORY_TAGS`; explicit tags on name
   columns and on Iceberg columns via `ALTER ICEBERG TABLE`), `20_masking_policies.sql`
-  (tag-based masking + direct-apply fallback), `30_dmfs.sql` (system DMFs + one custom DMF).
+  (tag-based masking via a **scoped custom tag** — not the system tag, see constraint 12),
+  `30_dmfs.sql` (system DMFs + one custom DMF). Deploy as a one-time bootstrap (constraint 10).
 - **AC:** `DEMO_ROLE` sees masked email/name; ACCOUNTADMIN sees clear; a custom DMF returns a
   number and system DMF results land in `SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS`.
 
@@ -229,11 +230,26 @@ failures.
 8. **Network policy:** if CI auth is blocked by IP, add the Snowflake-managed GitHub rule to the
    active account network policy (additively) or use a dedicated CI user with a GitHub-allowing
    policy. This may need periodic re-application on shared accounts.
-9. **Idempotency:** setup SQL SHOULD use `CREATE ... IF NOT EXISTS` / `CREATE OR REPLACE`; the
-   full stack MUST be rebuildable from a single ordered script.
+9. **Idempotency:** setup + ingestion + dbt + semantic SQL SHOULD use `CREATE ... IF NOT EXISTS`
+   / `CREATE OR REPLACE` and be rebuildable from a single ordered script. **Exception:** the
+   governance layer (constraint 10) is a bootstrap and is not re-runnable in place.
+10. **Governance is a one-time bootstrap, NOT per-merge CI:** once a masking policy is attached
+    to a tag and DMFs to columns, `CREATE OR REPLACE MASKING POLICY` fails while in use and
+    `ADD DATA METRIC FUNCTION` errors on re-add. To reset: `ALTER TAG ... UNSET MASKING POLICY`
+    and `DROP`/re-add DMFs first. Keep governance out of the CI deploy job.
+11. **Custom DMF syntax:** a DATA METRIC FUNCTION body uses `RETURNS NUMBER AS $$ SELECT ... $$`,
+    NOT the `->` arrow (that is for masking / row-access policies).
+12. **Masking on shared accounts:** attach masking policies to a **scoped custom tag** you set
+    only on your columns. Do NOT attach to the system `SNOWFLAKE.CORE.PRIVACY_CATEGORY` /
+    `SEMANTIC_CATEGORY` tags — that would mask classified PII account-wide across other databases.
+13. **Classification / DMF availability:** `SYSTEM$CLASSIFY` may be unavailable — use
+    `EXTRACT_SEMANTIC_CATEGORIES` + `ASSOCIATE_SEMANTIC_CATEGORY_TAGS` (the latter uses
+    `ALTER TABLE`, so tag Iceberg columns manually). Some system DMFs (e.g. `SNOWFLAKE.CORE.FRESHNESS`)
+    may not be authorized in all regions — verify before attaching. `CREATE TAG` needs `COMMENT = '...'`.
 
 ## 9. Definition of done (global)
-- One command sequence rebuilds the entire stack on a clean `DB` (see BUILD.md §5 pattern).
+- One command sequence rebuilds the core stack (env -> ingestion -> dbt -> semantic) on a clean
+  `DB` (see BUILD.md §5). Governance deploys as a separate one-time bootstrap (constraint 10).
 - All six RAW sources populated; dbt build green; three Iceberg marts MANAGED.
 - Two semantic views + one Cortex Search service answer natural-language questions.
 - Lineage resolves gold -> raw for structured and unstructured sources.
