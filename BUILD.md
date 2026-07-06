@@ -149,7 +149,12 @@ ORDER BY distance;
 | `sql/semantic/portfolio_risk_semantic_view.sql` | PORTFOLIO_RISK_SV |
 | `sql/semantic/earnings_search.sql` | Cortex Search over transcripts |
 | `.github/workflows/finance-de-cicd.yml` | CI/CD (dbt build/test + semantic deploy) |
-| `sql/governance/*` | (in progress) classification, masking, DMFs |
+| `sql/governance/00_role.sql` | Demo analyst role `FINANCE_ANALYST_RL` |
+| `sql/governance/10_classify.sql` | Auto PII classification + explicit/Iceberg tags |
+| `sql/governance/20_masking_policies.sql` | Tag-based dynamic masking |
+| `sql/governance/30_dmfs.sql` | System + custom data-quality metric functions |
+| `sql/lineage/lineage_checks.sql` | Horizon lineage (upstream/downstream) |
+| `docs/GOVERNANCE.md` | Governance talk track + verification |
 
 ## 5. Rebuild from scratch
 
@@ -185,11 +190,23 @@ snow sql -c default -f sql/semantic/earnings_search.sql
 - **Tagging Iceberg tables** uses `ALTER ICEBERG TABLE ... MODIFY COLUMN ... SET TAG` (the auto
   classification proc uses `ALTER TABLE` and fails on Iceberg).
 
-## 7. Planned / roadmap (open plans)
+## 7. Governance + lineage (built)
 
-- **Governance** (in progress): auto PII classification (`EXTRACT_SEMANTIC_CATEGORIES` +
-  `ASSOCIATE_SEMANTIC_CATEGORY_TAGS`), tag-based dynamic masking, and DMFs, with a
-  `FINANCE_ANALYST_RL` demo role — see `add-governance-and-iceberg-interop` plan.
+Deployed as a one-time bootstrap (policies/DMFs become attached objects — not re-runnable in
+place; see `docs/GOVERNANCE.md`):
+```bash
+snow sql -c default -f sql/governance/00_role.sql
+snow sql -c default -f sql/governance/10_classify.sql
+snow sql -c default -f sql/governance/20_masking_policies.sql
+snow sql -c default -f sql/governance/30_dmfs.sql
+snow sql -c default -f sql/lineage/lineage_checks.sql
+```
+- Auto PII classification -> tag-based dynamic masking (analyst sees masked; admin clear).
+- System + custom DMFs (`NEGATIVE_AUM_COUNT`) on the gold tables.
+- Horizon lineage from gold products back to every raw source.
+
+## 8. Planned / roadmap (open)
+
 - **Iceberg interoperability**: prove the open format (`SYSTEM$GET_ICEBERG_TABLE_INFORMATION`,
   `GET_DDL`) + Spark / PyIceberg / Databricks connection recipes; commented Catalog Integration /
   Open Catalog templates for live external read/write.

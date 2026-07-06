@@ -153,18 +153,44 @@ in plain English — grounded in governed, defined metrics.
 **AI did the engineering here:** CoCo generated the semantic model (dimensions, metrics,
 synonyms) — the hardest part of enabling text-to-SQL — plus the search service DDL.
 
-### Act 6 — Trust and governance (Lineage)
-**Prompt to CoCo:** "Show me where the Portfolio Risk product comes from."
+### Act 6 — Trust and governance (classify, mask, monitor, lineage)
+**Prompt to CoCo:** "Auto-classify the PII in the investor data, mask it dynamically so a
+low-privilege analyst can't see names or emails, add data-quality checks, and show me where
+the Portfolio Risk product comes from."
+
+**Show — AI-driven classification + masking.** Same query, two roles:
+```sql
+USE ROLE ACCOUNTADMIN;         -- privileged: clear text
+SELECT investor_id, first_name, email FROM FINANCE_DE_DEMO.MARTS.INVESTOR_360 LIMIT 3;
+USE ROLE FINANCE_ANALYST_RL;   -- analyst: masked
+SELECT investor_id, first_name, email FROM FINANCE_DE_DEMO.MARTS.INVESTOR_360 LIMIT 3;
+```
+Classification auto-tagged the PII; a tag-based masking policy does the rest — the analyst
+sees `****MASKED****` names and `****@apollobank.com` emails on the **Iceberg** gold table.
+
+**Show — data quality (DMFs).**
+```sql
+SELECT 'negative_aum' metric, FINANCE_DE_DEMO.GOVERNANCE.NEGATIVE_AUM_COUNT(
+  SELECT assets_under_management FROM FINANCE_DE_DEMO.MARTS.INVESTOR_360) value;
+```
+A custom metric surfaces 426 investors with negative AUM to investigate — data quality as code.
+
+**Show — lineage.**
 ```sql
 SELECT source_object_name, target_object_name, distance
 FROM TABLE(SNOWFLAKE.CORE.GET_LINEAGE('FINANCE_DE_DEMO.MARTS.PORTFOLIO_RISK','TABLE','UPSTREAM',3))
 ORDER BY distance;
 ```
-Lineage traces the gold Iceberg product back through the Silver views to every RAW source —
-structured *and* the unstructured transcripts — automatically.
+Lineage traces the gold Iceberg product back through Silver to every RAW source — structured
+*and* the unstructured transcripts.
 
-**Point to make:** answers "where did this number come from?" and "what breaks if I change
-this?" — essential for audit and regulatory confidence.
+**AI did the engineering here:** CoCo authored the classification, tag-based masking policy,
+and DMFs from one sentence. **Nuance:** masking is enforced at Snowflake query time; an
+external engine reading raw Parquet bypasses it — which is why open-format governance uses
+Snowflake Open Catalog / external policies (see Iceberg interop).
+
+**Point to make:** classify -> mask -> monitor -> trace, all as governed code — essential for
+audit and regulatory confidence.
 
 ### Act 7 — Production discipline (Version control + CI/CD)
 **Prompt to CoCo:** "Put everything in GitHub and add a CI/CD workflow that builds and tests
