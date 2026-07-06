@@ -32,9 +32,8 @@ stack on Snowflake for a financial services use case:
 - `CUSTOMER_WALKTHROUGH.md` — customer-facing showcase narrative
 
 ## Prerequisites
-- Snowflake account `SFSENORTHAMERICA-DEMO_JHILL`, role `ACCOUNTADMIN`
 - `snow` CLI connection named `default` pointing at the account
-- External volume `MY_EXTERNAL_VOL` (already configured -> `s3://jh-iceberg/tt`)
+- External volume `MY_EXTERNAL_VOL` (example: `s3://jh-iceberg/tt`)
 
 ## Quickstart
 ```bash
