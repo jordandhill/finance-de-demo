@@ -1,5 +1,8 @@
 # Finance DE Demo — Build Runbook
 
+> Note: the full, consolidated build guide now lives in [BUILD.md](BUILD.md). This runbook
+> is kept as a condensed reference and demo talk track.
+
 Internal runbook for building/resetting the demo and the exact **Cortex Code (CoCo)**
 prompts used at each stage. For the customer-facing narrative, see `CUSTOMER_WALKTHROUGH.md`.
 

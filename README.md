@@ -70,7 +70,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the standalone diagram.
 - `openflow/` — Openflow flow definitions (config-as-code) + source data generators
 - `dbt/finance_de_demo/` — dbt project (Bronze -> Silver -> Gold Iceberg)
 - `.github/workflows/` — GitHub Actions CI/CD (dbt build + test + deploy)
-- `DEMO_RUNBOOK.md` — internal run/reset steps and the CoCo prompts used to build it
+- `BUILD.md` — **consolidated, authoritative build guide** (prereqs, phased build with CoCo prompts, verification, file inventory, reset, caveats)
+- `DEMO_RUNBOOK.md` — condensed run/reset steps + CoCo prompts (superseded by `BUILD.md`)
 - `CUSTOMER_WALKTHROUGH.md` — customer-facing showcase narrative
 
 ## Prerequisites
