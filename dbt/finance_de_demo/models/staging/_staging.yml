@@ -12,6 +12,12 @@ sources:
         description: "Market / reference instrument prices (source 3)."
       - name: TRANSACTIONS
         description: "Core banking transactions incl. trades (source 1)."
+      - name: TRADES
+        description: "Trade executions from the trading/risk system (source 4)."
+      - name: RISK_METRICS
+        description: "Per-customer risk snapshot: exposure, VaR, limits (source 5)."
+      - name: EARNINGS_TRANSCRIPTS_RAW
+        description: "Parsed earnings-call transcripts landed via the Openflow document connector (source 6, unstructured)."
 
 models:
   - name: stg_customers
@@ -47,3 +53,37 @@ models:
           - relationships:
               to: ref('stg_customers')
               field: customer_id
+
+  - name: stg_trades
+    description: "Cleansed trade executions from the trading/risk source."
+    columns:
+      - name: trade_id
+        tests: [not_null, unique]
+      - name: side
+        tests:
+          - accepted_values:
+              values: ['BUY','SELL']
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+
+  - name: stg_risk_metrics
+    description: "Latest per-customer risk snapshot (exposure, VaR, limit breach)."
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: var_95
+        tests: [not_null]
+
+  - name: stg_earnings_transcripts
+    description: "Parsed earnings transcripts with Cortex sentiment + one-line summary."
+    columns:
+      - name: symbol
+        tests: [not_null]
+      - name: sentiment
+        tests:
+          - accepted_values:
+              values: ['positive','negative','neutral','mixed']

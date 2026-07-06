@@ -99,12 +99,86 @@ SELECT g,
 FROM generate_series(1, 50000) g;
 
 -- ---------------------------------------------------------------------------
+-- 4. Trades (trade executions) - dedicated trading source
+-- ---------------------------------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS trading;
+
+DROP TABLE IF EXISTS trading.trades CASCADE;
+CREATE TABLE trading.trades (
+    trade_id       BIGINT PRIMARY KEY,
+    customer_id    INTEGER,
+    symbol         VARCHAR(12),
+    side           VARCHAR(4),            -- BUY / SELL
+    quantity       NUMERIC(18,4),
+    price          NUMERIC(18,4),
+    notional       NUMERIC(18,2),
+    book           VARCHAR(16),           -- EQUITY / FIXED_INCOME / FX / DERIVATIVES
+    status         VARCHAR(12),           -- FILLED / PARTIAL / CANCELLED
+    trade_ts       TIMESTAMP,
+    updated_at     TIMESTAMP DEFAULT now()
+);
+
+INSERT INTO trading.trades
+SELECT g,
+       1 + (g % 1000),
+       'SYM' || lpad((1 + floor(random()*50))::int::text, 3, '0'),
+       (ARRAY['BUY','SELL'])[1 + floor(random()*2)],
+       q,
+       p,
+       round((q * p)::numeric, 2),
+       (ARRAY['EQUITY','FIXED_INCOME','FX','DERIVATIVES'])[1 + floor(random()*4)],
+       (ARRAY['FILLED','FILLED','FILLED','PARTIAL','CANCELLED'])[1 + floor(random()*5)],
+       now() - (floor(random()*365) || ' days')::interval,
+       now()
+FROM (
+    SELECT g,
+           round((1 + random()*500)::numeric, 4)  AS q,
+           round((10 + random()*990)::numeric, 4) AS p
+    FROM generate_series(1, 20000) g
+) s;
+
+-- ---------------------------------------------------------------------------
+-- 5. Risk metrics (per-customer risk snapshot from the risk system)
+-- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS trading.risk_metrics CASCADE;
+CREATE TABLE trading.risk_metrics (
+    customer_id       INTEGER,
+    as_of_date        DATE,
+    gross_exposure    NUMERIC(18,2),
+    net_exposure      NUMERIC(18,2),
+    var_95            NUMERIC(18,2),      -- 95% 1-day Value at Risk
+    risk_limit        NUMERIC(18,2),
+    limit_breach_flag BOOLEAN,
+    updated_at        TIMESTAMP DEFAULT now(),
+    PRIMARY KEY (customer_id, as_of_date)
+);
+
+INSERT INTO trading.risk_metrics
+SELECT c AS customer_id,
+       CURRENT_DATE,
+       gross,
+       round((gross * (0.2 + random()*0.6))::numeric, 2)  AS net,
+       v,
+       lim,
+       (v > lim)                                          AS breach,
+       now()
+FROM (
+    SELECT c,
+           round((10000 + random()*990000)::numeric, 2)  AS gross,
+           round((5000 + random()*200000)::numeric, 2)   AS v,
+           round((50000 + random()*200000)::numeric, 2)  AS lim
+    FROM generate_series(1, 1000) c
+) s;
+
+-- ---------------------------------------------------------------------------
 -- CDC enablement: logical replication publication for the Openflow connector
 -- ---------------------------------------------------------------------------
 CREATE PUBLICATION finance_cdc_pub FOR TABLE
     customer_crm.customers,
     market_ref.instrument_prices,
-    core_banking.transactions;
+    core_banking.transactions,
+    trading.trades,
+    trading.risk_metrics;
 
 -- Openflow connector uses a replication slot; grant replication to the connector user.
 -- GRANT rds_replication TO <connector_user>;   -- RDS

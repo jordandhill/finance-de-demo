@@ -35,7 +35,7 @@ GRANT USAGE ON INTEGRATION FINANCE_PG_EAI TO ROLE OPENFLOW_RUNTIME_ROLE;
 | Database | `finance_de_demo` |
 | Publication | `finance_cdc_pub` |
 | Replication slot | `finance_slot` |
-| Included tables (regex) | `(core_banking\.transactions|customer_crm\.customers|market_ref\.instrument_prices)` |
+| Included tables (regex) | `(core_banking\.transactions|customer_crm\.customers|market_ref\.instrument_prices|trading\.trades|trading\.risk_metrics)` |
 | Destination database | `FINANCE_DE_DEMO` |
 | Destination schema | `RAW` |
 | Destination table strategy | one table per source table |
@@ -49,6 +49,8 @@ GRANT USAGE ON INTEGRATION FINANCE_PG_EAI TO ROLE OPENFLOW_RUNTIME_ROLE;
 | `customer_crm.customers` | `FINANCE_DE_DEMO.RAW.CUSTOMERS` |
 | `market_ref.instrument_prices` | `FINANCE_DE_DEMO.RAW.INSTRUMENT_PRICES` |
 | `core_banking.transactions` | `FINANCE_DE_DEMO.RAW.TRANSACTIONS` |
+| `trading.trades` | `FINANCE_DE_DEMO.RAW.TRADES` |
+| `trading.risk_metrics` | `FINANCE_DE_DEMO.RAW.RISK_METRICS` |
 
 Each landed row also carries CDC metadata columns from the connector
 (`_snowflake_inserted_at`, `_snowflake_deleted`, operation type). The dbt

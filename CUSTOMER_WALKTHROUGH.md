@@ -11,18 +11,21 @@ Code (CoCo), entirely on Snowflake, with open Iceberg storage, lineage, and CI/C
 ## 1. The business problem
 
 Relationship managers and risk teams need a single, trustworthy view of each customer:
-their profile, their cash activity, and the market value of what they hold. Today that
-data lives in three separate systems:
+their profile, their cash activity, what they trade and hold, the risk they carry, and
+what the market is saying. Today that data lives in separate systems:
 
 | Source system | What it holds |
 |---------------|---------------|
-| Core banking | Account transactions, deposits, withdrawals, trades |
+| Core banking | Account transactions, deposits, withdrawals |
 | CRM | Customer profile, segment, KYC and risk rating |
 | Market data | Instrument prices and FX rates |
+| Trading & risk | Trade executions, positions, exposure, VaR, limit breaches |
+| Earnings transcripts (unstructured) | What management said on the earnings call |
 
-The goal: a **Customer 360** data product that combines all three, is governed and
-open, and can answer natural-language business questions — built and maintained by a
-small team without stitching together five different tools.
+The goal: governed, open **Customer 360** and **Portfolio Risk** data products that
+combine structured and unstructured data, answer natural-language questions, and let
+risk teams search what was actually said — built by a small team without stitching
+together five different tools.
 
 ## 2. The approach
 
@@ -86,6 +89,52 @@ cloud storage** — readable by other engines, one copy, fully managed by Snowfl
 **Point to make:** open format, no lock-in, no duplication; Snowflake handles metadata,
 compaction, and performance.
 
+### Act 3b — More sources through Openflow: trades, risk & unstructured earnings
+**Say:** "Add a trades and risk source, and bring in earnings-call transcripts as an
+unstructured source."
+
+**Show:**
+- **Trades & risk** land through the same Openflow **PostgreSQL CDC** connector (trade
+  executions + a per-customer risk snapshot with exposure, VaR, and limit breaches).
+  You can narrate how the same connector also supports **streaming** for real-time trades.
+- **Earnings call transcripts** (PDFs) arrive through a **non-Postgres Openflow document
+  connector**, land in a Snowflake stage, and are parsed with **Cortex `AI_PARSE_DOCUMENT`**,
+  then scored for sentiment and summarized — no external OCR or NLP tooling.
+
+```sql
+SELECT symbol, sentiment, LEFT(summary, 90) AS outlook
+FROM FINANCE_DE_DEMO.STAGING.STG_EARNINGS_TRANSCRIPTS ORDER BY symbol;
+```
+**Point to make:** one platform ingests structured *and* unstructured data, and AI reads
+the documents in place.
+
+### Act 3c — Portfolio risk data product + document AI
+**Say:** "Build a portfolio risk view that values every position and blends in the
+earnings sentiment for each holding."
+
+**Show:** the second Iceberg gold product, `PORTFOLIO_RISK`, and how sentiment lines up
+with performance:
+```sql
+SELECT * FROM SEMANTIC_VIEW(
+  FINANCE_DE_DEMO.SEMANTIC.PORTFOLIO_RISK_SV
+  DIMENSIONS positions.earnings_sentiment
+  METRICS positions.position_count, positions.total_gross_exposure, positions.total_unrealized_pnl
+) ORDER BY total_unrealized_pnl DESC;
+```
+Positions in **positive-sentiment** names carry materially higher unrealized P&L than
+**negative/neutral** ones — a structured + unstructured signal in one governed table.
+
+**And natural-language document search** via Cortex Search:
+```sql
+SELECT f.value:symbol::string AS symbol, f.value:sentiment::string AS sentiment
+FROM TABLE(FLATTEN(input => PARSE_JSON(SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
+  'FINANCE_DE_DEMO.SEMANTIC.EARNINGS_SEARCH',
+  '{"query":"which companies are cutting guidance or facing weak demand","columns":["symbol","sentiment"],"limit":3}'
+)):results)) f;
+```
+**Point to make:** risk officers query positions *and* search what management actually
+said — all governed, all in Snowflake.
+
 ### Act 4 — Make it answer questions (Semantic view + AI)
 **Say:** "Create a semantic view over Customer 360 with segment, risk, and country
 dimensions and relationship-value metrics."
@@ -146,11 +195,13 @@ software, with a full audit trail.
 | Analytics / AI | Governed semantic layer powering natural-language questions over trusted data |
 
 ## 5. What was built (recap)
-- **3 sources** ingested via Openflow CDC into a governed Bronze layer
+- **6 sources** ingested via Openflow — 5 structured (PostgreSQL CDC) + 1 unstructured
+  (earnings transcripts via a document connector, parsed with Cortex)
 - **dbt** Silver + Gold transformations, tested, running on Snowflake compute
-- **Customer 360** as a Snowflake-managed **Iceberg** data product
-- **Semantic view** enabling AI / natural-language analytics
-- **Horizon lineage** from Gold back to every source
+- **Two Iceberg data products**: `CUSTOMER_360` (relationship value) and `PORTFOLIO_RISK`
+  (positions, exposure, P&L + earnings sentiment), plus a `CUSTOMER_RISK` summary
+- **Semantic views** + a **Cortex Search** service enabling AI / natural-language analytics
+- **Horizon lineage** from Gold back to every structured and unstructured source
 - **GitHub + CI/CD** and Snowflake Git for full version control
 
 All of it built by describing the outcome to Cortex Code — the engineer focused on the

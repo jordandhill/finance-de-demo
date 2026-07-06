@@ -22,3 +22,32 @@ models:
         tests: [not_null]
       - name: holdings_value
         description: "Net trade positions valued at latest instrument price."
+
+  - name: portfolio_risk
+    description: >
+      Gold portfolio risk (Snowflake-managed Iceberg) at customer x instrument grain:
+      net positions valued at market, exposure, unrealized P&L, enriched with the
+      instrument's latest earnings-call sentiment/summary.
+    columns:
+      - name: customer_id
+        tests: [not_null]
+      - name: symbol
+        tests: [not_null]
+      - name: gross_exposure
+        tests: [not_null]
+      - name: earnings_sentiment
+        tests:
+          - accepted_values:
+              values: ['positive','negative','neutral','mixed']
+              config:
+                where: "earnings_sentiment is not null"
+
+  - name: customer_risk
+    description: >
+      Gold customer-level risk summary (Snowflake-managed Iceberg): exposure, VaR,
+      risk limit and breach flag, plus derived portfolio exposure.
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: var_95
+        tests: [not_null]
