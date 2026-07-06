@@ -3,11 +3,31 @@
 End-to-end demo showing how **Cortex Code (CoCo)** builds a governed data-engineering
 stack on Snowflake for a financial services use case:
 
+```mermaid
+flowchart TD
+  subgraph sources [Synthetic Financial Sources - Postgres CDC]
+    S1[Core banking transactions]
+    S2[Customer / CRM master]
+    S3[Market / reference data]
+  end
+  S1 --> OF[Openflow CDC Connector]
+  S2 --> OF
+  S3 --> OF
+  OF --> BRONZE[(RAW / Bronze landing tables)]
+  BRONZE --> SILVER[(Silver - dbt cleansed & conformed)]
+  SILVER --> GOLD[(Gold - CUSTOMER_360 Snowflake-managed Iceberg)]
+  GOLD --> SV[Semantic View for Cortex Analyst / AI]
+  GOLD --> LIN[Horizon column-level lineage]
+  SV --> AI[Snowflake Intelligence / AI]
+  subgraph cicd [Version Control and CI-CD]
+    GH[GitHub repo] --> GHA[GitHub Actions: dbt build/test + snow deploy]
+    GH --> GITREPO[Snowflake GIT REPOSITORY object]
+  end
+  GHA -.deploys.-> SILVER
+  GHA -.deploys.-> GOLD
 ```
-3 financial sources  ->  Openflow CDC  ->  RAW (Bronze)  ->  dbt STAGING (Silver)
-   ->  MARTS.CUSTOMER_360 (Snowflake-managed Iceberg, Gold)
-   ->  Semantic View + Horizon lineage  ->  Cortex Analyst / AI
-```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the standalone diagram.
 
 ## Data sources (Bronze)
 1. **Core banking transactions** — account debits/credits/transfers and trades
