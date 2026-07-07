@@ -111,6 +111,10 @@ All CDC-landed tables MUST carry `_snowflake_inserted_at`, `_snowflake_deleted` 
   unrealized_pnl, plus the instrument's `earnings_sentiment`/`earnings_summary`.
 - `INVESTOR_RISK` — investor-level exposure, var_95, risk_limit, limit_breach_flag.
 
+> Note on the two trade paths: `INVESTOR_360` holdings are derived from `TRADE_BUY`/`TRADE_SELL`
+> rows in `RAW.TRANSACTIONS` (cash-book view), while `PORTFOLIO_RISK` uses the dedicated
+> `RAW.TRADES` source (trading-book view). This is intentional, not a duplication to unify.
+
 ## 7. Requirements by phase
 
 Each phase: **objective**, the **agent prompt** (natural language the agent acts on),
@@ -169,6 +173,8 @@ Each phase: **objective**, the **agent prompt** (natural language the agent acts
   transcripts."
 - **Deliverables:** `sql/semantic/investor_360_semantic_view.sql`,
   `portfolio_risk_semantic_view.sql`, `earnings_search.sql`.
+- **Note:** in `CREATE SEMANTIC VIEW`, the form is `table.LOGICAL_NAME AS <physical_expr>` — the
+  LOGICAL_NAME is what you query in `SEMANTIC_VIEW(... DIMENSIONS/METRICS ...)`, not the column.
 - **AC:** `SELECT ... FROM SEMANTIC_VIEW(...)` returns sensible aggregates; `SEARCH_PREVIEW`
   returns relevant transcripts for a natural-language query.
 
@@ -215,7 +221,9 @@ failures.
    `TIMESTAMP_NTZ(6)` (Iceberg rejects scale 9).
 2. **dbt-on-Snowflake:** `profiles.yml` MUST include `role` and `account`; set
    `flags: enable_iceberg_materializations: true`; in `snow dbt execute` the `-c CONNECTION`
-   flag MUST precede the project name.
+   flag MUST precede the project name. The project MUST override `generate_schema_name` (macro)
+   to use the model's configured schema verbatim (`STAGING`, `MARTS`) — otherwise dbt concatenates
+   the target schema (e.g. `MARTS_MARTS`). Exact deploy/run commands: see BUILD.md §4.
 3. **Document AI:** the stage backing `AI_PARSE_DOCUMENT` MUST be `ENCRYPTION=(TYPE='SNOWFLAKE_SSE')`;
    call as `AI_PARSE_DOCUMENT(TO_FILE('@stage', relative_path), {'mode':'LAYOUT'}):content::STRING`.
 4. **Cortex model availability is regional:** do not assume `claude-*`; default to `CORTEX_LLM`.
